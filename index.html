@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f7f3">
+  <meta name="description" content="Report and track neighborhood issues across Bengaluru.">
+  <title>FixMyStreet Bengaluru — Better streets start here</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #1d2924;
+      --muted: #748078;
+      --paper: #f6f7f3;
+      --card: #fff;
+      --line: #e6eae4;
+      --green: #18764e;
+      --green-dark: #105b3a;
+      --green-soft: #e8f4ec;
+      --orange: #e99837;
+      --shadow: 0 12px 36px rgba(32, 54, 41, .07);
+    }
+    * { box-sizing: border-box; }
+    body { background: var(--paper); color: var(--ink); font-family: "DM Sans", sans-serif; }
+    h1, h2, h3, .brand, .stat-value { font-family: Manrope, sans-serif; }
+    .topbar { background: rgba(255,255,255,.94); border-bottom: 1px solid var(--line); }
+    .brand { color: var(--ink); font-weight: 800; letter-spacing: -.7px; }
+    .brand-mark { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; color: white; background: var(--green); margin-right: .55rem; }
+    .hero { background: radial-gradient(ellipse at 85% 20%, rgba(116,187,127,.23), transparent 30%), linear-gradient(120deg, #123f2c, #1d7049); color: white; border-radius: 24px; padding: clamp(1.5rem, 4vw, 3rem); overflow: hidden; position: relative; }
+    .hero:after { content: ""; position: absolute; width: 250px; height: 250px; right: 7%; bottom: -180px; border: 1px solid rgba(255,255,255,.16); border-radius: 50%; box-shadow: 0 0 0 30px rgba(255,255,255,.035), 0 0 0 60px rgba(255,255,255,.025); }
+    .hero h1 { font-weight: 800; letter-spacing: -1.6px; max-width: 700px; }
+    .hero p { color: rgba(255,255,255,.77); max-width: 590px; }
+    .hero .btn { position: relative; z-index: 1; }
+    .btn-green { --bs-btn-color: #fff; --bs-btn-bg: var(--green); --bs-btn-border-color: var(--green); --bs-btn-hover-bg: var(--green-dark); --bs-btn-hover-border-color: var(--green-dark); --bs-btn-hover-color: #fff; --bs-btn-active-bg: var(--green-dark); }
+    .hero .btn-green { --bs-btn-color: var(--green-dark); --bs-btn-bg: #fff; --bs-btn-border-color: #fff; --bs-btn-hover-bg: #eef7f0; --bs-btn-hover-border-color: #eef7f0; --bs-btn-hover-color: var(--green-dark); }
+    .eyebrow { color: var(--green); text-transform: uppercase; letter-spacing: 1.2px; font-size: .73rem; font-weight: 700; }
+    .stat-card, .surface { background: var(--card); border: 1px solid var(--line); border-radius: 17px; box-shadow: var(--shadow); }
+    .stat-card { padding: 1rem 1.15rem; height: 100%; }
+    .stat-icon { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 12px; background: var(--green-soft); color: var(--green); font-size: 1.1rem; }
+    .stat-value { font-size: 1.55rem; line-height: 1.2; font-weight: 800; }
+    .stat-label { color: var(--muted); font-size: .82rem; }
+    .surface { padding: 1.2rem; }
+    .section-heading { font-size: 1.12rem; font-weight: 800; letter-spacing: -.3px; }
+    .map-wrap { position: relative; }
+    #map { height: 390px; border-radius: 13px; z-index: 1; }
+    .map-hint { position: absolute; z-index: 500; bottom: 12px; left: 50%; transform: translateX(-50%); background: white; border: 1px solid var(--line); border-radius: 999px; padding: .48rem .8rem; font-size: .77rem; box-shadow: 0 4px 14px rgba(0,0,0,.12); white-space: nowrap; }
+    .issue-marker { width: 32px; height: 32px; border: 3px solid white; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); box-shadow: 0 2px 8px rgba(0,0,0,.3); display: grid; place-items: center; }
+    .issue-marker i { color: white; font-size: 13px; transform: rotate(45deg); }
+    .filter-chip { border: 1px solid var(--line); color: #536057; background: white; border-radius: 999px; padding: .38rem .72rem; font-size: .8rem; white-space: nowrap; }
+    .filter-chip.active { color: var(--green-dark); border-color: #a7cfb5; background: var(--green-soft); font-weight: 700; }
+    .issue-card { border: 1px solid var(--line); border-radius: 14px; padding: 1rem; background: white; transition: border-color .15s, transform .15s; }
+    .issue-card:hover { border-color: #b6d2bf; transform: translateY(-1px); }
+    .issue-card.selected { border-color: var(--green); box-shadow: 0 0 0 2px rgba(24,118,78,.1); }
+    .issue-photo { width: 78px; height: 78px; object-fit: cover; border-radius: 11px; flex: none; }
+    .issue-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 1.05rem; flex: none; }
+    .issue-title { font-weight: 700; }
+    .issue-meta { color: var(--muted); font-size: .78rem; }
+    .status-badge { border-radius: 999px; padding: .28rem .57rem; font-size: .69rem; font-weight: 700; white-space: nowrap; }
+    .status-reported { background: #fff2df; color: #98601b; }
+    .status-acknowledged { background: #e9f0ff; color: #3c5fa6; }
+    .status-fixed { background: #e3f4e8; color: #247044; }
+    .vote-btn { color: var(--green); border: 1px solid #dce8df; background: #f7fbf8; }
+    .vote-btn.voted { color: white; background: var(--green); border-color: var(--green); }
+    .comment-box { border-top: 1px solid var(--line); margin-top: .85rem; padding-top: .8rem; }
+    .comment-line { font-size: .82rem; margin-bottom: .45rem; }
+    .ward-row + .ward-row { border-top: 1px solid var(--line); }
+    .ward-rank { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 9px; background: #f0f3ef; font-size: .78rem; font-weight: 700; }
+    .ward-progress { height: 6px; }
+    .form-control, .form-select { border-color: #dce3dc; padding-top: .65rem; padding-bottom: .65rem; }
+    .form-control:focus, .form-select:focus { border-color: #81b597; box-shadow: 0 0 0 .2rem rgba(24,118,78,.12); }
+    .preview-photo { max-height: 180px; max-width: 100%; object-fit: cover; border-radius: 12px; }
+    .footer-note { color: var(--muted); font-size: .78rem; }
+    .admin-banner { background: #fff6e8; color: #7d541a; border: 1px solid #f1dfbf; border-radius: 11px; padding: .65rem .8rem; font-size: .8rem; }
+    @media (max-width: 575.98px) {
+      #map { height: 320px; }
+      .hero { border-radius: 18px; }
+      .surface { padding: 1rem; }
+      .issue-photo { width: 62px; height: 62px; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar topbar sticky-top">
+    <div class="container py-1">
+      <a class="navbar-brand brand d-flex align-items-center" href="#" aria-label="FixMyStreet Bengaluru home">
+        <span class="brand-mark"><i class="bi bi-geo-alt-fill"></i></span>
+        FixMyStreet <span class="text-success ms-1">Bengaluru</span>
+      </a>
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-sm btn-outline-secondary" id="adminToggle" type="button"><i class="bi bi-shield-check me-1"></i><span>Admin</span></button>
+        <button class="btn btn-sm btn-green fw-semibold" data-bs-toggle="modal" data-bs-target="#reportModal"><i class="bi bi-plus-lg me-1"></i>Report issue</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container py-4 py-lg-5">
+    <section class="hero mb-4 mb-lg-5">
+      <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+          <span class="badge rounded-pill text-bg-light text-success mb-3"><i class="bi bi-people-fill me-1"></i> Neighbourhood-powered</span>
+          <h1 class="display-5 mb-3">Better streets start with <span class="text-warning">being heard.</span></h1>
+          <p class="mb-4">Spot a pothole, overflowing bin or broken streetlight? Report it, follow its progress and help your neighbours get it fixed.</p>
+          <button class="btn btn-green fw-bold px-4 py-2" data-bs-toggle="modal" data-bs-target="#reportModal"><i class="bi bi-camera me-2"></i>Report a local issue</button>
+          <span class="small ms-3 text-white-50"><i class="bi bi-geo-alt me-1"></i>Bengaluru, Karnataka</span>
+        </div>
+        <div class="col-lg-4 d-none d-lg-flex justify-content-center">
+          <div class="text-center p-4">
+            <i class="bi bi-buildings display-1 text-white opacity-50"></i>
+            <div class="fw-semibold mt-2">Small reports. Real change.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="row g-3 mb-4" aria-label="Community issue summary">
+      <div class="col-6 col-lg-3"><div class="stat-card d-flex align-items-center gap-3"><div class="stat-icon"><i class="bi bi-exclamation-circle"></i></div><div><div class="stat-value" id="statOpen">0</div><div class="stat-label">Needs attention</div></div></div></div>
+      <div class="col-6 col-lg-3"><div class="stat-card d-flex align-items-center gap-3"><div class="stat-icon"><i class="bi bi-check2-circle"></i></div><div><div class="stat-value" id="statFixed">0</div><div class="stat-label">Fixed by the community</div></div></div></div>
+      <div class="col-6 col-lg-3"><div class="stat-card d-flex align-items-center gap-3"><div class="stat-icon"><i class="bi bi-chat-heart"></i></div><div><div class="stat-value" id="statReports">0</div><div class="stat-label">Reports shared</div></div></div></div>
+      <div class="col-6 col-lg-3"><div class="stat-card d-flex align-items-center gap-3"><div class="stat-icon"><i class="bi bi-people"></i></div><div><div class="stat-value" id="statWards">0</div><div class="stat-label">Wards represented</div></div></div></div>
+    </section>
+
+    <div class="row g-4">
+      <div class="col-lg-7">
+        <section class="surface mb-4">
+          <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+            <div><div class="eyebrow mb-1">Bengaluru at a glance</div><h2 class="section-heading mb-0">Community issue map</h2></div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="locateBtn"><i class="bi bi-crosshair me-1"></i>My location</button>
+          </div>
+          <div class="d-flex flex-wrap gap-2 mb-3" aria-label="Map legend">
+            <span class="small text-muted"><span class="text-danger">●</span> Roads</span>
+            <span class="small text-muted"><span style="color:#e99837">●</span> Garbage</span>
+            <span class="small text-muted"><span style="color:#7656c5">●</span> Streetlights</span>
+            <span class="small text-muted"><span style="color:#287cb6">●</span> Waterlogging</span>
+          </div>
+          <div class="map-wrap">
+            <div id="map" aria-label="Map of reported Bengaluru neighborhood issues"></div>
+            <div class="map-hint" id="mapHint"><i class="bi bi-hand-index-thumb me-1"></i>Select a pin to view its report</div>
+          </div>
+        </section>
+
+        <section class="surface">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div><div class="eyebrow mb-1">Your neighbourhood</div><h2 class="section-heading mb-0">Recent reports</h2></div>
+            <span class="small text-muted" id="resultCount"></span>
+          </div>
+          <div class="d-flex gap-2 overflow-auto pb-2 mb-2" id="typeFilters" aria-label="Filter reports by issue type"></div>
+          <div class="d-flex gap-2 mb-3">
+            <div class="input-group input-group-sm">
+              <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+              <input class="form-control" type="search" id="searchInput" placeholder="Search reports or wards" aria-label="Search reports or wards">
+            </div>
+            <select class="form-select form-select-sm" id="statusFilter" aria-label="Filter by status" style="max-width: 155px">
+              <option value="all">All statuses</option><option value="Reported">Reported</option><option value="Acknowledged">Acknowledged</option><option value="Fixed">Fixed</option>
+            </select>
+          </div>
+          <div class="d-flex flex-column gap-3" id="issueList"></div>
+        </section>
+      </div>
+
+      <aside class="col-lg-5">
+        <section class="surface mb-4">
+          <div class="eyebrow mb-1">Public accountability</div>
+          <h2 class="section-heading mb-1">Ward leaderboard</h2>
+          <p class="small text-muted mb-3">Resolution rate based on reports marked fixed.</p>
+          <div id="leaderboard"></div>
+          <div class="small text-muted mt-3"><i class="bi bi-info-circle me-1"></i>Rates reflect reports on this community board.</div>
+        </section>
+        <section class="surface">
+          <div class="eyebrow mb-1">How it works</div>
+          <h2 class="section-heading mb-3">From report to repair</h2>
+          <div class="d-flex gap-3 mb-3"><div class="stat-icon flex-none"><i class="bi bi-camera"></i></div><div><div class="fw-bold small">1. Report what you see</div><div class="small text-muted">Add a photo, choose the issue type and pin the location.</div></div></div>
+          <div class="d-flex gap-3 mb-3"><div class="stat-icon flex-none"><i class="bi bi-hand-thumbs-up"></i></div><div><div class="fw-bold small">2. Neighbours add support</div><div class="small text-muted">Upvote and comment so urgent problems stand out.</div></div></div>
+          <div class="d-flex gap-3"><div class="stat-icon flex-none"><i class="bi bi-check2-circle"></i></div><div><div class="fw-bold small">3. Track the progress</div><div class="small text-muted">Follow each report from reported to acknowledged to fixed.</div></div></div>
+          <hr>
+          <p class="footer-note mb-0"><i class="bi bi-shield-lock me-1"></i>This demo stores reports on this device only. Please avoid sharing personal or sensitive information.</p>
+        </section>
+      </aside>
+    </div>
+    <footer class="text-center footer-note py-4">A community project for a more liveable Bengaluru <span class="mx-1">·</span> Be kind, be specific, make change.</footer>
+  </main>
+
+  <div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+      <form class="modal-content border-0 rounded-4" id="reportForm">
+        <div class="modal-header border-0 pb-0 px-4 pt-4">
+          <div><div class="eyebrow">Help improve your area</div><h2 class="modal-title fs-4 fw-bold" id="reportModalTitle">Report an issue</h2></div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body px-4">
+          <div class="row g-3">
+            <div class="col-md-6"><label class="form-label fw-semibold" for="reportType">Issue type</label>
+              <select class="form-select" id="reportType" required><option value="Pothole">Pothole / road damage</option><option value="Garbage">Garbage / overflowing bin</option><option value="Streetlight">Broken streetlight</option><option value="Waterlogging">Waterlogging / drainage</option></select></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="reportWard">Ward / neighbourhood</label>
+              <select class="form-select" id="reportWard" required></select></div>
+            <div class="col-12"><label class="form-label fw-semibold" for="reportTitle">Short title</label>
+              <input class="form-control" id="reportTitle" maxlength="80" placeholder="e.g. Deep pothole near the bus stop" required></div>
+            <div class="col-12"><label class="form-label fw-semibold" for="reportDescription">What is happening?</label>
+              <textarea class="form-control" id="reportDescription" rows="3" maxlength="500" placeholder="Add helpful details so the right people can find it." required></textarea></div>
+            <div class="col-md-7"><label class="form-label fw-semibold" for="reportPhoto">Photo <span class="text-muted fw-normal">(optional)</span></label>
+              <input class="form-control" id="reportPhoto" type="file" accept="image/*">
+              <div class="form-text">A clear photo helps others understand the issue. Max 5 MB.</div></div>
+            <div class="col-md-5 d-flex align-items-end"><button class="btn btn-outline-success w-100" type="button" id="pickLocationBtn"><i class="bi bi-geo-alt me-1"></i><span id="locationButtonText">Pick location on map</span></button></div>
+            <div class="col-12 d-none" id="photoPreviewWrap"><img class="preview-photo" id="photoPreview" alt="Selected issue photo preview"></div>
+            <div class="col-12"><div class="small text-muted" id="locationLabel"><i class="bi bi-pin-map me-1"></i>No location selected yet. Pick a point on the map or use My location.</div></div>
+            <div class="col-12"><div class="alert alert-danger py-2 d-none mb-0" id="formError" role="alert"></div></div>
+          </div>
+        </div>
+        <div class="modal-footer border-0 px-4 pb-4">
+          <button class="btn btn-light" type="button" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-green px-4" type="submit"><i class="bi bi-send me-1"></i>Publish report</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div class="toast border-0 shadow" id="appToast" role="status" aria-live="polite">
+      <div class="d-flex"><div class="toast-body" id="toastMessage">Done.</div><button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const WARDS = ['Indiranagar', 'Jayanagar', 'Malleshwaram', 'Koramangala', 'Whitefield', 'Rajajinagar'];
+    const TYPES = {
+      Pothole: { icon: 'bi-cone-striped', color: '#d94a4a', label: 'Roads' },
+      Garbage: { icon: 'bi-trash3', color: '#e99837', label: 'Garbage' },
+      Streetlight: { icon: 'bi-lightbulb', color: '#7656c5', label: 'Streetlights' },
+      Waterlogging: { icon: 'bi-water', color: '#287cb6', label: 'Waterlogging' }
+    };
+    const SEED_ISSUES = [
+      { id: 'demo-1', type: 'Pothole', title: 'Large pothole beside the metro entrance', description: 'Hard to see after dark and vehicles are swerving into the next lane.', ward: 'Indiranagar', lat: 12.9784, lng: 77.6408, status: 'Acknowledged', votes: 18, createdAt: daysAgo(1), comments: [{ name: 'Ananya', text: 'Reported this at the ward office too. Please be careful here.' }] },
+      { id: 'demo-2', type: 'Garbage', title: 'Overflowing bins near the market', description: 'Waste has been spilling onto the footpath since yesterday morning.', ward: 'Jayanagar', lat: 12.9251, lng: 77.5838, status: 'Reported', votes: 12, createdAt: daysAgo(2), comments: [] },
+      { id: 'demo-3', type: 'Streetlight', title: 'Streetlight out on 8th Cross', description: 'The whole stretch is dark after 8 pm.', ward: 'Malleshwaram', lat: 13.0068, lng: 77.5681, status: 'Fixed', votes: 9, createdAt: daysAgo(8), comments: [{ name: 'Ravi', text: 'Light is working again—thanks!' }] },
+      { id: 'demo-4', type: 'Waterlogging', title: 'Water collecting at the junction', description: 'Rainwater is not draining and pedestrians cannot cross safely.', ward: 'Koramangala', lat: 12.9352, lng: 77.6245, status: 'Acknowledged', votes: 15, createdAt: daysAgo(3), comments: [] },
+      { id: 'demo-5', type: 'Pothole', title: 'Broken road surface near the bus stop', description: 'A deep crater has formed in the left lane.', ward: 'Whitefield', lat: 12.9698, lng: 77.7500, status: 'Reported', votes: 7, createdAt: daysAgo(4), comments: [] },
+      { id: 'demo-6', type: 'Garbage', title: 'Dumping beside the park entrance', description: 'Please arrange a pickup; the pile is attracting stray animals.', ward: 'Rajajinagar', lat: 13.0102, lng: 77.5550, status: 'Fixed', votes: 11, createdAt: daysAgo(12), comments: [] },
+      { id: 'demo-7', type: 'Streetlight', title: 'Two lights not working on the service road', description: 'The service road is very dark in the evenings.', ward: 'Whitefield', lat: 12.9576, lng: 77.7441, status: 'Reported', votes: 5, createdAt: daysAgo(6), comments: [] }
+    ];
+    const STORAGE_KEY = 'fixmystreet_bengaluru_v1';
+    const $ = id => document.getElementById(id);
+    const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+    function daysAgo(days) { return new Date(Date.now() - days * 86400000).toISOString(); }
+    const formatDate = date => new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short' }).format(new Date(date));
+    const statusClass = status => `status-${status.toLowerCase()}`;
+    const state = loadState();
+    let activeType = 'All';
+    let selectedIssueId = null;
+    let chosenLocation = null;
+    let photoData = '';
+    let isAdmin = false;
+    let pickingLocation = false;
+    let map;
+    let markerLayer;
+    let locationMarker;
+    let toast;
+    let reportModal;
+
+    function loadState() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (saved && Array.isArray(saved.issues)) return { issues: saved.issues, voted: Array.isArray(saved.voted) ? saved.voted : [] };
+      } catch (error) {
+        console.warn('Saved reports could not be read; starting with demo reports.', error);
+      }
+      return { issues: SEED_ISSUES.map(issue => ({ ...issue, comments: [...issue.comments] })), voted: [] };
+    }
+    function persist() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        return true;
+      } catch (error) {
+        showToast('Could not save this change on your device. Try removing a large photo.');
+        console.error('Local report storage failed.', error);
+        return false;
+      }
+    }
+    function showToast(message) {
+      $('toastMessage').textContent = message;
+      toast.show();
+    }
+    function initMap() {
+      map = L.map('map', { scrollWheelZoom: false }).setView([12.9716, 77.5946], 11);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      }).addTo(map);
+      markerLayer = L.layerGroup().addTo(map);
+      map.on('click', event => {
+        if (!pickingLocation) return;
+        chosenLocation = { lat: event.latlng.lat, lng: event.latlng.lng };
+        pickingLocation = false;
+        updateLocationLabel();
+        if (locationMarker) locationMarker.remove();
+        locationMarker = L.marker([chosenLocation.lat, chosenLocation.lng]).addTo(map).bindPopup('New report location');
+        reportModal.show();
+      });
+      renderMarkers();
+    }
+    function renderMarkers() {
+      if (!markerLayer) return;
+      markerLayer.clearLayers();
+      state.issues.forEach(issue => {
+        const type = TYPES[issue.type] || TYPES.Pothole;
+        const icon = L.divIcon({
+          className: '',
+          html: `<div class="issue-marker" style="background:${type.color}"><i class="bi ${type.icon}"></i></div>`,
+          iconSize: [32, 38],
+          iconAnchor: [16, 36]
+        });
+        const marker = L.marker([issue.lat, issue.lng], { icon }).addTo(markerLayer);
+        marker.bindPopup(`<strong>${escapeHtml(issue.title)}</strong><br><span>${escapeHtml(issue.ward)} · ${escapeHtml(issue.status)}</span>`);
+        marker.on('click', () => {
+          selectedIssueId = issue.id;
+          renderIssues();
+        });
+      });
+    }
+    function updateStats() {
+      const fixed = state.issues.filter(issue => issue.status === 'Fixed').length;
+      $('statOpen').textContent = state.issues.length - fixed;
+      $('statFixed').textContent = fixed;
+      $('statReports').textContent = state.issues.length;
+      $('statWards').textContent = new Set(state.issues.map(issue => issue.ward)).size;
+    }
+    function renderFilters() {
+      const choices = ['All', ...Object.keys(TYPES)];
+      $('typeFilters').innerHTML = choices.map(type => `<button type="button" class="filter-chip ${activeType === type ? 'active' : ''}" data-type="${escapeHtml(type)}">${type === 'All' ? 'All issues' : escapeHtml(type)}</button>`).join('');
+      $('typeFilters').querySelectorAll('[data-type]').forEach(button => button.addEventListener('click', () => {
+        activeType = button.dataset.type;
+        renderFilters();
+        renderIssues();
+      }));
+    }
+    function renderIssues() {
+      const query = $('searchInput').value.trim().toLowerCase();
+      const status = $('statusFilter').value;
+      const issues = [...state.issues]
+        .filter(issue => (activeType === 'All' || issue.type === activeType))
+        .filter(issue => status === 'all' || issue.status === status)
+        .filter(issue => `${issue.title} ${issue.description} ${issue.ward} ${issue.type}`.toLowerCase().includes(query))
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      $('resultCount').textContent = `${issues.length} ${issues.length === 1 ? 'report' : 'reports'}`;
+      $('issueList').innerHTML = issues.length ? issues.map(issueCard).join('') :
+        '<div class="text-center py-5"><i class="bi bi-search fs-2 text-secondary"></i><p class="text-muted mt-2 mb-0">No reports match those filters.</p></div>';
+      $('issueList').querySelectorAll('[data-vote]').forEach(button => button.addEventListener('click', () => upvote(button.dataset.vote)));
+      $('issueList').querySelectorAll('[data-comment-form]').forEach(form => form.addEventListener('submit', event => {
+        event.preventDefault();
+        addComment(form.dataset.commentForm, form.querySelector('input').value);
+      }));
+      $('issueList').querySelectorAll('[data-status]').forEach(select => select.addEventListener('change', () => changeStatus(select.dataset.status, select.value)));
+      $('issueList').querySelectorAll('[data-focus]').forEach(button => button.addEventListener('click', () => focusIssue(button.dataset.focus)));
+    }
+    function issueCard(issue) {
+      const type = TYPES[issue.type] || TYPES.Pothole;
+      const voted = state.voted.includes(issue.id);
+      const comments = (issue.comments || []).map(comment => `<div class="comment-line"><span class="fw-bold">${escapeHtml(comment.name)}:</span> ${escapeHtml(comment.text)}</div>`).join('');
+      return `<article class="issue-card ${selectedIssueId === issue.id ? 'selected' : ''}" id="issue-${escapeHtml(issue.id)}">
+        <div class="d-flex gap-3">
+          ${issue.photo ? `<img class="issue-photo" src="${issue.photo}" alt="Photo for ${escapeHtml(issue.title)}">` : `<div class="issue-icon" style="background:${type.color}18;color:${type.color}"><i class="bi ${type.icon}"></i></div>`}
+          <div class="flex-grow-1 min-w-0">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+              <div class="issue-title">${escapeHtml(issue.title)}</div>
+              <span class="status-badge ${statusClass(issue.status)}">${escapeHtml(issue.status)}</span>
+            </div>
+            <div class="issue-meta mt-1">${escapeHtml(issue.type)} <span class="mx-1">·</span> ${escapeHtml(issue.ward)} <span class="mx-1">·</span> ${formatDate(issue.createdAt)}</div>
+            <p class="small text-secondary mt-2 mb-2">${escapeHtml(issue.description)}</p>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <button type="button" class="btn btn-sm vote-btn ${voted ? 'voted' : ''}" data-vote="${escapeHtml(issue.id)}" ${voted ? 'disabled' : ''} aria-label="Upvote report">
+                <i class="bi bi-arrow-up me-1"></i>${voted ? 'Supported' : 'Support'} <span class="ms-1">${Number(issue.votes) || 0}</span>
+              </button>
+              <button class="btn btn-sm btn-light text-secondary" type="button" data-focus="${escapeHtml(issue.id)}"><i class="bi bi-geo-alt me-1"></i>Map</button>
+              <span class="small text-muted"><i class="bi bi-chat-dots me-1"></i>${(issue.comments || []).length}</span>
+            </div>
+          </div>
+        </div>
+        <div class="comment-box">${comments || '<div class="small text-muted mb-2">No comments yet. Be the first to add a helpful update.</div>'}
+          <form class="d-flex gap-2 mt-2" data-comment-form="${escapeHtml(issue.id)}">
+            <input class="form-control form-control-sm" maxlength="200" placeholder="Add a helpful comment…" aria-label="Add a comment" required>
+            <button class="btn btn-sm btn-outline-success" type="submit" aria-label="Post comment"><i class="bi bi-send"></i></button>
+          </form>
+        </div>
+        ${isAdmin ? `<div class="admin-banner mt-3 d-flex align-items-center gap-2"><i class="bi bi-shield-check"></i><label class="small fw-semibold" for="status-${escapeHtml(issue.id)}">Update status</label><select class="form-select form-select-sm ms-auto" id="status-${escapeHtml(issue.id)}" data-status="${escapeHtml(issue.id)}" style="max-width:155px"><option ${issue.status === 'Reported' ? 'selected' : ''}>Reported</option><option ${issue.status === 'Acknowledged' ? 'selected' : ''}>Acknowledged</option><option ${issue.status === 'Fixed' ? 'selected' : ''}>Fixed</option></select></div>` : ''}
+      </article>`;
+    }
+    function renderLeaderboard() {
+      const rows = WARDS.map(ward => {
+        const reports = state.issues.filter(issue => issue.ward === ward);
+        const fixed = reports.filter(issue => issue.status === 'Fixed').length;
+        return { ward, total: reports.length, fixed, rate: reports.length ? Math.round(fixed / reports.length * 100) : 0 };
+      }).sort((a, b) => b.rate - a.rate || b.fixed - a.fixed || a.ward.localeCompare(b.ward));
+      $('leaderboard').innerHTML = rows.map((row, index) => `<div class="ward-row py-3">
+        <div class="d-flex align-items-center gap-2">
+          <span class="ward-rank">${index + 1}</span><div class="flex-grow-1"><div class="d-flex justify-content-between small"><strong>${row.ward}</strong><span class="text-muted">${row.fixed}/${row.total} fixed</span></div>
+            <div class="progress ward-progress mt-2" role="progressbar" aria-label="${row.ward} resolution rate" aria-valuenow="${row.rate}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar bg-success" style="width:${row.rate}%"></div></div></div><strong class="small ms-2">${row.rate}%</strong>
+        </div></div>`).join('');
+    }
+    function renderAll() {
+      updateStats();
+      renderFilters();
+      renderIssues();
+      renderLeaderboard();
+      renderMarkers();
+    }
+    function upvote(id) {
+      const issue = state.issues.find(item => item.id === id);
+      if (!issue || state.voted.includes(id)) return;
+      issue.votes = (Number(issue.votes) || 0) + 1;
+      state.voted.push(id);
+      if (persist()) renderAll();
+    }
+    function addComment(id, text) {
+      const issue = state.issues.find(item => item.id === id);
+      const cleanText = text.trim();
+      if (!issue || !cleanText) return;
+      issue.comments = issue.comments || [];
+      issue.comments.push({ name: 'Neighbour', text: cleanText });
+      if (persist()) {
+        renderAll();
+        showToast('Your comment has been added.');
+      }
+    }
+    function changeStatus(id, status) {
+      const issue = state.issues.find(item => item.id === id);
+      if (!issue || !['Reported', 'Acknowledged', 'Fixed'].includes(status)) return;
+      issue.status = status;
+      if (persist()) {
+        renderAll();
+        showToast(`Report updated to ${status.toLowerCase()}.`);
+      }
+    }
+    function focusIssue(id) {
+      const issue = state.issues.find(item => item.id === id);
+      if (!issue) return;
+      selectedIssueId = id;
+      map.setView([issue.lat, issue.lng], 15);
+      renderIssues();
+      const card = $(`issue-${CSS.escape(id)}`);
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    function updateLocationLabel() {
+      $('locationLabel').innerHTML = chosenLocation
+        ? `<i class="bi bi-pin-map-fill text-success me-1"></i>Location selected: ${chosenLocation.lat.toFixed(5)}, ${chosenLocation.lng.toFixed(5)}`
+        : '<i class="bi bi-pin-map me-1"></i>No location selected yet. Pick a point on the map or use My location.';
+      $('locationButtonText').textContent = chosenLocation ? 'Change map location' : 'Pick location on map';
+    }
+    function pickCurrentLocation() {
+      if (!navigator.geolocation) {
+        showToast('Location services are not available in this browser.');
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(position => {
+        chosenLocation = { lat: position.coords.latitude, lng: position.coords.longitude };
+        map.setView([chosenLocation.lat, chosenLocation.lng], 15);
+        if (locationMarker) locationMarker.remove();
+        locationMarker = L.marker([chosenLocation.lat, chosenLocation.lng]).addTo(map).bindPopup('Selected report location').openPopup();
+        updateLocationLabel();
+      }, error => {
+        const message = error.code === 1 ? 'Location permission was denied.' : 'Could not get your location. Choose a point on the map instead.';
+        showToast(message);
+      }, { enableHighAccuracy: true, timeout: 10000 });
+    }
+    function resetReportForm() {
+      $('reportForm').reset();
+      photoData = '';
+      chosenLocation = null;
+      $('photoPreviewWrap').classList.add('d-none');
+      $('formError').classList.add('d-none');
+      if (locationMarker) {
+        locationMarker.remove();
+        locationMarker = null;
+      }
+      updateLocationLabel();
+    }
+    function compressImage(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('The photo could not be read.'));
+        reader.onload = () => {
+          const image = new Image();
+          image.onerror = () => reject(new Error('Choose a valid image file.'));
+          image.onload = () => {
+            const scale = Math.min(1, 1000 / Math.max(image.width, image.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(image.width * scale);
+            canvas.height = Math.round(image.height * scale);
+            canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/jpeg', 0.72));
+          };
+          image.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+    function showFormError(message) {
+      $('formError').textContent = message;
+      $('formError').classList.remove('d-none');
+    }
+    function submitReport(event) {
+      event.preventDefault();
+      if (!chosenLocation) {
+        showFormError('Choose a location on the map or use your current location.');
+        return;
+      }
+      const issue = {
+        id: `report-${Date.now()}`,
+        type: $('reportType').value,
+        title: $('reportTitle').value.trim(),
+        description: $('reportDescription').value.trim(),
+        ward: $('reportWard').value,
+        lat: chosenLocation.lat,
+        lng: chosenLocation.lng,
+        status: 'Reported',
+        votes: 0,
+        createdAt: new Date().toISOString(),
+        comments: [],
+        ...(photoData ? { photo: photoData } : {})
+      };
+      if (!issue.title || !issue.description) {
+        showFormError('Add a short title and a description of the issue.');
+        return;
+      }
+      state.issues.unshift(issue);
+      if (!persist()) {
+        state.issues.shift();
+        return;
+      }
+      reportModal.hide();
+      resetReportForm();
+      renderAll();
+      selectedIssueId = issue.id;
+      focusIssue(issue.id);
+      showToast('Your report is now on the community map.');
+    }
+    function initialize() {
+      toast = bootstrap.Toast.getOrCreateInstance($('appToast'), { delay: 3500 });
+      reportModal = bootstrap.Modal.getOrCreateInstance($('reportModal'));
+      $('reportWard').innerHTML = WARDS.map(ward => `<option>${escapeHtml(ward)}</option>`).join('');
+      $('searchInput').addEventListener('input', renderIssues);
+      $('statusFilter').addEventListener('change', renderIssues);
+      $('reportForm').addEventListener('submit', submitReport);
+      $('reportModal').addEventListener('hidden.bs.modal', () => { if (!pickingLocation) resetReportForm(); });
+      $('pickLocationBtn').addEventListener('click', () => {
+        pickingLocation = true;
+        reportModal.hide();
+        $('mapHint').innerHTML = '<i class="bi bi-crosshair me-1"></i>Click the map to place your report pin';
+        $('mapHint').classList.add('text-success');
+        setTimeout(() => map.invalidateSize(), 250);
+        document.querySelector('#map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+      $('locateBtn').addEventListener('click', pickCurrentLocation);
+      $('adminToggle').addEventListener('click', () => {
+        isAdmin = !isAdmin;
+        $('adminToggle').classList.toggle('btn-success', isAdmin);
+        $('adminToggle').classList.toggle('btn-outline-secondary', !isAdmin);
+        $('adminToggle').querySelector('span').textContent = isAdmin ? 'Admin on' : 'Admin';
+        renderIssues();
+        showToast(isAdmin ? 'Demo admin controls are enabled on this device.' : 'Admin controls are hidden.');
+      });
+      $('reportPhoto').addEventListener('change', async event => {
+        const file = event.target.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+          event.target.value = '';
+          showFormError('Select an image file for the photo.');
+          return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          event.target.value = '';
+          showFormError('The photo must be smaller than 5 MB.');
+          return;
+        }
+        try {
+          photoData = await compressImage(file);
+          $('photoPreview').src = photoData;
+          $('photoPreviewWrap').classList.remove('d-none');
+          $('formError').classList.add('d-none');
+        } catch (error) {
+          showFormError(error.message);
+        }
+      });
+      $('reportForm').addEventListener('input', () => $('formError').classList.add('d-none'));
+      initMap();
+      renderAll();
+    }
+    initialize();
+  </script>
+</body>
+</html>
